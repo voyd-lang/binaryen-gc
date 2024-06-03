@@ -43,7 +43,7 @@ mod.setFeatures(binaryen.Features.All);
 mod.addFunction(
   "getVec",
   binaryen.none,
-  binaryen.structref(),
+  binaryen.structref,
   [],
   mod.block(
     null,
@@ -62,9 +62,9 @@ mod.addFunction(
 mod.addFunction(
   "main",
   binaryen.none,
-  binaryen.structref(),
+  binaryen.structref,
   [],
-  mod.call("getVec", [], binaryen.structref())
+  mod.call("getVec", [], binaryen.structref)
 );
 
 mod.addFunctionExport("main", "main");
