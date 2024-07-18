@@ -1,16 +1,19 @@
 /**
  * @fileoverview This is a custom port of
- * https://github.com/WebAssembly/binaryen/blob/e6bbbc1cadce319eacec6ac6ebbd71d86f3d1082/src/ts/binaryen.ts#L2269
+ * https://github.com/WebAssembly/bin/blob/e6bbbc1cadce319eacec6ac6ebbd71d86f3d1082/src/ts/bin.ts#L2269
  */
 
-import binaryen, {
-  Module,
+import binaryen from "binaryen";
+import {
+  AugmentedBinaryen,
   ExpressionRef,
-  TypeBuilderRef,
   HeapTypeRef,
-  Type,
   PackedType,
-} from "binaryen";
+  Type,
+  TypeBuilderRef,
+} from "./types";
+
+const bin = binaryen as AugmentedBinaryen;
 
 export interface TypeBuilderResult {
   heapTypes: HeapTypeRef[];
@@ -26,33 +29,33 @@ export interface FieldType {
 
 export class TypeBuilder {
   static typeFromTempHeapType(heapType: HeapTypeRef, nullable: boolean): Type {
-    return binaryen["_BinaryenTypeFromHeapType"](heapType, nullable);
+    return bin["_BinaryenTypeFromHeapType"](heapType, nullable);
   }
 
   static heapTypeFromType(type: Type): HeapTypeRef {
-    return binaryen["_BinaryenTypeGetHeapType"](type);
+    return bin["_BinaryenTypeGetHeapType"](type);
   }
 
   static arrayElementType(heapType: HeapTypeRef): Type {
-    return binaryen["_BinaryenArrayTypeGetElementType"](heapType);
+    return bin["_BinaryenArrayTypeGetElementType"](heapType);
   }
 
   static structMemberCount(heapType: HeapTypeRef): number {
-    return binaryen["_BinaryenStructTypeGetNumFields"](heapType);
+    return bin["_BinaryenStructTypeGetNumFields"](heapType);
   }
 
   static structMemberType(heapType: HeapTypeRef, index: number): Type {
-    return binaryen["_BinaryenStructTypeGetFieldType"](heapType, index);
+    return bin["_BinaryenStructTypeGetFieldType"](heapType, index);
   }
 
   readonly ref: TypeBuilderRef;
 
   constructor(slots: number) {
-    this.ref = binaryen["_TypeBuilderCreate"](slots);
+    this.ref = bin["_TypeBuilderCreate"](slots);
   }
 
   setArrayType(slot: number, elementType: FieldType): TypeBuilder {
-    binaryen["_TypeBuilderSetArrayType"](
+    bin["_TypeBuilderSetArrayType"](
       this.ref,
       slot,
       elementType.type,
@@ -63,22 +66,22 @@ export class TypeBuilder {
   }
 
   setStructType(slot: number, fieldTypes: FieldType[]): TypeBuilder {
-    const types = binaryen._malloc(4 * fieldTypes.length);
-    const packedTypes = binaryen._malloc(4 * fieldTypes.length);
+    const types = bin._malloc(4 * fieldTypes.length);
+    const packedTypes = bin._malloc(4 * fieldTypes.length);
     // assume sizeof(bool) is 1
-    const mutables = binaryen._malloc(fieldTypes.length);
+    const mutables = bin._malloc(fieldTypes.length);
     let typesPtr = types,
       packedTypesPtr = packedTypes,
       mutablesPtr = mutables;
     fieldTypes.forEach((field) => {
-      binaryen.__i32_store(typesPtr, field.type);
+      bin.__i32_store(typesPtr, field.type);
       typesPtr += 4;
-      binaryen.__i32_store(packedTypesPtr, field.packedType);
+      bin.__i32_store(packedTypesPtr, field.packedType);
       packedTypesPtr += 4;
-      binaryen.__i32_store(mutablesPtr, field.mutable ? 1 : 0);
+      bin.__i32_store(mutablesPtr, field.mutable ? 1 : 0);
       mutablesPtr++;
     });
-    binaryen["_TypeBuilderSetStructType"](
+    bin["_TypeBuilderSetStructType"](
       this.ref,
       slot,
       types,
@@ -86,44 +89,44 @@ export class TypeBuilder {
       mutables,
       fieldTypes.length
     );
-    binaryen._free(mutables);
-    binaryen._free(packedTypes);
-    binaryen._free(types);
+    bin._free(mutables);
+    bin._free(packedTypes);
+    bin._free(types);
     return this;
   }
 
   getTempHeapType(slot: number): HeapTypeRef {
-    return binaryen["_TypeBuilderGetTempHeapType"](this.ref, slot);
+    return bin["_TypeBuilderGetTempHeapType"](this.ref, slot);
   }
 
   buildAndDispose(): TypeBuilderResult {
-    const size = binaryen["_TypeBuilderGetSize"](this.ref) as number;
-    const ptr = binaryen._malloc(4 + 4 + 4 * size); // assume 4-bytes memory reference
+    const size = bin["_TypeBuilderGetSize"](this.ref) as number;
+    const ptr = bin._malloc(4 + 4 + 4 * size); // assume 4-bytes memory reference
     const errorIndexPtr = ptr;
     const errorReasonPtr = ptr + 4;
     const heapTypesPtr = ptr + 8;
-    const ok = binaryen["_TypeBuilderBuildAndDispose"](
+    const ok = bin["_TypeBuilderBuildAndDispose"](
       this.ref,
       heapTypesPtr,
       errorIndexPtr,
       errorReasonPtr
     );
-    const errorIndex = binaryen.__i32_load(errorIndexPtr);
-    const errorReason = binaryen.__i32_load(errorReasonPtr);
+    const errorIndex = bin.__i32_load(errorIndexPtr);
+    const errorReason = bin.__i32_load(errorReasonPtr);
     const heapTypes: HeapTypeRef[] = [];
     if (ok) {
       for (let i = 0, offset = heapTypesPtr; i < size; i++, offset += 4) {
-        const type = binaryen.__i32_load(offset);
+        const type = bin.__i32_load(offset);
         heapTypes.push(type);
       }
     }
-    binaryen._free(ptr);
+    bin._free(ptr);
     return { heapTypes, errorIndex, errorReason };
   }
 }
 
 function strToStack(str: string) {
-  return str ? binaryen.allocateUTF8OnStack(str) : 0;
+  return str ? bin.allocateUTF8OnStack(str) : 0;
 }
 
 export const gc = {
@@ -131,10 +134,10 @@ export const gc = {
     newFromInit: (
       mod: Module,
       heapType: HeapTypeRef,
-      size: binaryen.ExpressionRef,
+      size: bin.ExpressionRef,
       init: ExpressionRef
     ): ExpressionRef => {
-      return binaryen._BinaryenArrayNew(mod.ptr, heapType, size, init);
+      return bin._BinaryenArrayNew(mod.ptr, heapType, size, init);
     },
     newFromData: (
       mod: Module,
@@ -143,7 +146,7 @@ export const gc = {
       offset: ExpressionRef,
       size: ExpressionRef
     ): ExpressionRef =>
-      binaryen._BinaryenArrayNewData(
+      bin._BinaryenArrayNewData(
         mod.ptr,
         heapType,
         strToStack(name),
@@ -155,19 +158,19 @@ export const gc = {
       heapType: HeapTypeRef,
       values: ExpressionRef[]
     ): ExpressionRef => {
-      const ptr = binaryen._malloc(Math.max(8, values.length * 4));
+      const ptr = bin._malloc(Math.max(8, values.length * 4));
       let offset = ptr;
       values.forEach((value) => {
-        binaryen.__i32_store(offset, value);
+        bin.__i32_store(offset, value);
         offset += 4;
       });
-      const result = binaryen["_BinaryenArrayNewFixed"](
+      const result = bin["_BinaryenArrayNewFixed"](
         mod.ptr,
         heapType,
         ptr,
         values.length
       );
-      binaryen._free(ptr);
+      bin._free(ptr);
       return result;
     },
     copy: (
@@ -178,7 +181,7 @@ export const gc = {
       srcItem: ExpressionRef,
       numItems: ExpressionRef
     ): ExpressionRef =>
-      binaryen["_BinaryenArrayCopy"](
+      bin["_BinaryenArrayCopy"](
         mod.ptr,
         destArray,
         destItem,
@@ -193,16 +196,15 @@ export const gc = {
       type: number,
       signed: boolean
     ): ExpressionRef =>
-      binaryen["_BinaryenArrayGet"](mod.ptr, array, item, type, signed),
+      bin["_BinaryenArrayGet"](mod.ptr, array, item, type, signed),
     setItem: (
       mod: Module,
       array: ExpressionRef,
       index: ExpressionRef,
       value: ExpressionRef
-    ): ExpressionRef =>
-      binaryen["_BinaryenArraySet"](mod.ptr, array, index, value),
+    ): ExpressionRef => bin["_BinaryenArraySet"](mod.ptr, array, index, value),
     length: (mod: Module, array: ExpressionRef): ExpressionRef =>
-      binaryen["_BinaryenArrayLen"](mod.ptr, array),
+      bin["_BinaryenArrayLen"](mod.ptr, array),
   },
   structs: {
     newFromFields: (
@@ -210,19 +212,19 @@ export const gc = {
       heapType: HeapTypeRef,
       values: ExpressionRef[]
     ): ExpressionRef => {
-      const ptr = binaryen._malloc(4 * values.length);
+      const ptr = bin._malloc(4 * values.length);
       let offset = ptr;
       values.forEach((value) => {
-        binaryen.__i32_store(offset, value);
+        bin.__i32_store(offset, value);
         offset += 4;
       });
-      const result = binaryen["_BinaryenStructNew"](
+      const result = bin["_BinaryenStructNew"](
         mod.ptr,
         ptr,
         values.length,
         heapType
       );
-      binaryen._free(ptr);
+      bin._free(ptr);
       return result;
     },
     getMember: (
@@ -232,7 +234,7 @@ export const gc = {
       resultType: number,
       signed: boolean
     ) =>
-      binaryen["_BinaryenStructGet"](
+      bin["_BinaryenStructGet"](
         mod.ptr,
         memberIndex,
         struct,
@@ -240,10 +242,10 @@ export const gc = {
         signed
       ),
     setMember: (
-      mod: Module,
+      mod: binaryen.Module,
       struct: ExpressionRef,
       memberIndex: number,
       value: ExpressionRef
-    ) => binaryen["_BinaryenStructSet"](mod.ptr, memberIndex, struct, value),
+    ) => bin["_BinaryenStructSet"](mod.ptr, memberIndex, struct, value),
   },
 };
