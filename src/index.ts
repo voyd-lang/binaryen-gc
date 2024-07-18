@@ -8,6 +8,7 @@ import {
   AugmentedBinaryen,
   ExpressionRef,
   HeapTypeRef,
+  Module,
   PackedType,
   Type,
   TypeBuilderRef,
@@ -134,7 +135,7 @@ export const gc = {
     newFromInit: (
       mod: Module,
       heapType: HeapTypeRef,
-      size: bin.ExpressionRef,
+      size: ExpressionRef,
       init: ExpressionRef
     ): ExpressionRef => {
       return bin._BinaryenArrayNew(mod.ptr, heapType, size, init);
@@ -242,7 +243,7 @@ export const gc = {
         signed
       ),
     setMember: (
-      mod: binaryen.Module,
+      mod: Module,
       struct: ExpressionRef,
       memberIndex: number,
       value: ExpressionRef

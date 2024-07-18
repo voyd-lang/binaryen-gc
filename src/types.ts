@@ -17,6 +17,7 @@ export type TypeBuilderErrorReason = u32;
 export type ArrayRef<_T> = Ref;
 export type Pointer<_T> = Ref;
 export type ExpressionRef = number;
+export type Module = binaryen.Module;
 
 export type AugmentedBinaryen = typeof binaryen & {
   _BinaryenTypeFromHeapType(heapType: HeapTypeRef, nullable: bool): TypeRef;
@@ -34,6 +35,7 @@ export type AugmentedBinaryen = typeof binaryen & {
   ): void;
   _malloc(size: usize): usize;
   _free(ptr: usize): void;
+  __i32_load(ptr: usize): number;
   __i32_store(ptr: usize, value: number): void;
   _TypeBuilderSetStructType(
     builder: TypeBuilderRef,
